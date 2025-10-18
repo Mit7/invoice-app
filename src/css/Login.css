@@ -1,0 +1,125 @@
+body {
+  background: #f3f4f6;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.split-screen {
+  display: flex;
+  height: 100vh;
+}
+
+/* Responsive: For screens <= 768px (tablets, mobiles) */
+@media only screen and (max-width: 768px) {
+  .split-screen {
+    flex-direction: column;
+  }
+
+  .split.left {
+    display: none; /* Optionally: stack above using 'order: 2' */
+  }
+
+  .split.right {
+    flex: none;
+    width: 100vw;
+    min-height: 100vh;
+    justify-content: flex-start;
+    align-items: flex-start;
+    background: #fff;
+  }
+
+  .login-container {
+    margin: 0 auto;
+    max-width: 100vw;
+    min-height: 100vh;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 24px 10vw;
+  }
+}
+.split {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.left {
+ /* background: linear-gradient(120deg, #19224B 0%, #BC8F32 100%); */
+ background: linear-gradient(120deg, #4158d0 0%, #c850c0 100%);
+  color: #fff;
+}
+
+.brand-box {
+  text-align: center;
+}
+
+.right {
+  background: #fff;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 0 20px rgba(0,0,0,0.08);
+  border-radius: 12px;
+}
+
+.login-title {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-label {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.login-input {
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.login-input:focus {
+  border-color: #4158d0;
+}
+
+.login-btn {
+  background: #4158d0;
+  color: #fff;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
+}
+
+.login-btn:hover {
+  background: #c850c0;
+}
+
+.login-error {
+  color: #fff;
+  background: #f87171;
+  padding: 8px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  text-align: center;
+}
