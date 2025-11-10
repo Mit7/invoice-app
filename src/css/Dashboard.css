@@ -15,9 +15,9 @@
   background: #fff;
   width: 85vw;
   max-width: 1200px;
-  padding: 24px 32px;
+  padding: 0px 32px;
   border-radius: 18px 18px 0 0;
-  box-shadow: 0 6px 24px 0 rgba(34, 14, 81, 0.10);
+  box-shadow: 0 6px 444px 0 rgba(34, 14, 81, 0.10);
   margin-bottom: 0;
 }
 
@@ -37,6 +37,15 @@
   margin-bottom: 28px;
 }
 
+.dashboard-create-wrap {
+  display: flex;
+  justify-content: flex-start;
+  margin: 20px 0;
+  width: 85vw;
+  max-width: 1200px;
+  padding: 0 32px;
+}
+
 .dashboard-label {
   margin-top: 10px;
   margin-bottom: 5px;
@@ -47,7 +56,7 @@
 .dashboard-input, .dashboard-btn, textarea.dashboard-input {
   
   padding: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 0px;
   border: 1px solid #d1d5db;
   border-radius: 7px;
   font-size: 1rem;
@@ -58,6 +67,7 @@
 }
 
 .dashboard-btn {
+
   background: #4158d0;
   color: #fff;
   font-weight: 600;
@@ -235,5 +245,19 @@
     min-width: unset;
     max-width: 96vw;
     padding: 18px 4vw 12px 4vw;
+  }
+}
+
+/* Notification dropdown responsive overrides */
+.notification-dropdown {
+  /* ensure predictable sizing so max-width behaves well */
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .notification-dropdown {
+    /* override the inline right:0; inline styles have higher specificity, so use !important */
+    right: -90px !important;
+    max-width: 370px !important;
   }
 }

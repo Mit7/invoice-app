@@ -13,12 +13,13 @@ export async function login(email, password) {
   const res = await fetch(API_BASE + '/login', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }) 
   });
   if (!res.ok) throw new Error('Login failed');
   const data = await res.json();
   localStorage.setItem('auth_token', data.token);
   localStorage.setItem('user_role', data.user.role);
+  localStorage.setItem('user_department', data.user.department);
   return data.user;
 }
 
@@ -43,10 +44,10 @@ export async function uploadInvoice(formData) {
   return res.json();
 }
 
-export async function actionInvoice(id, action, comment) {
+export async function actionInvoice(id, action, comment, feedback) {
   return authFetch(`/invoices/${id}/action`, {
     method: 'POST',
-    body: JSON.stringify({ action, comment })
+    body: JSON.stringify({ action, comment, feedback }),
   });
 }
 

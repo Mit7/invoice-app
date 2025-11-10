@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { getInvoices, uploadInvoice, actionInvoice } from './api';
 import FinalUploadModal from './FinalUploadModal';
 import axios from 'axios';
@@ -17,7 +18,7 @@ function Modal({ open, onClose, children }) {
   );
 }
 
-// InvoiceHistoryPage component (as before)
+// InvoiceHistoryPage component
 function InvoiceHistoryPage({ invoiceId, onBack }) {
   const [history, setHistory] = useState([]);
   const [invoice, setInvoice] = useState(null);
@@ -37,6 +38,7 @@ function InvoiceHistoryPage({ invoiceId, onBack }) {
     <div className="container">
       <button onClick={onBack} style={{ marginBottom: 14 }}>← Back</button>
       <h2 style={{ color: '#085EE3' }}>{invoice ? `Invoice: ${invoice.title}` : 'Invoice History'}</h2>
+      <h4>Department: {invoice?.department || "-"}</h4>
       <h4>Status: {invoice?.status || "-"}</h4>
       <h4>Current Role: {invoice?.current_role || "-"}</h4>
       {invoice?.final_document && (
@@ -79,7 +81,6 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
   const [logs, setLogs] = useState([]);
   const [unseen, setUnseen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-
   useEffect(() => {
     if (!role) return;
     fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
@@ -138,7 +139,7 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
         )}
       </span>
       {showDropdown && (
-        <div style={{
+        <div className="notification-dropdown" style={{
           position: 'absolute',
           right: 0,
           top: 30,
@@ -151,9 +152,6 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
           borderRadius: 4,
           padding: 12,
           zIndex: 1001,
-          '@media (max-width: 480px)': {
-            right: '-15px',
-          }
         }}>
           <b style={{ marginBottom: 8, display: 'block' }}>Latest Actions</b>
           {logs.length === 0 ? (
@@ -166,9 +164,9 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
                 onClick={e => { e.preventDefault(); onViewInvoiceHistory && onViewInvoiceHistory(log.invoice_id); }}
                 title="View invoice history"
               >
-                {log.invoice?.title || "No title"}
+                {log.invoice?.title +' ('+ log.invoice.department + ')' || "No title"}
               </a>
-              <b>{log.role}</b> <em>{log.action.toUpperCase()}</em> : {log.comment || '(no comment)'}
+              <b>{log.role }</b> <em>{log.action.toUpperCase()}</em> : {log.comment || '(no comment)'}
               <div style={{ fontSize: '0.85em', color: '#666' }}>
                 {new Date(log.created_at).toLocaleString()}
               </div>
@@ -180,8 +178,9 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
   )
 }
 
+
 // Main Dashboard Component
-function Dashboard({ role, onLogout}) {
+function Dashboard({ role, department, onLogout }) {
   const [invoices, setInvoices] = useState([]);
   const [title, setTitle] = useState('');
   const [comment, setComment] = useState('');
@@ -196,8 +195,65 @@ function Dashboard({ role, onLogout}) {
   const [finalModalOpen, setFinalModalOpen] = useState(false);
   const [finalModalInvoiceId, setFinalModalInvoiceId] = useState(null);
 
+  // Action modal (replace native prompt with a 2-field modal)
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionInvoiceId, setActionInvoiceId] = useState(null);
+  const [actionType, setActionType] = useState(null);
+  const [actionComment, setActionComment] = useState('');
+  const [actionQuery, setActionQuery] = useState('');
+  const [commentError, setCommentError] = useState(false);
+  const [queryError, setQueryError] = useState(false);
+
   // Modal state for create invoice form
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [inv_type, setInv_type] = useState('');
+  const [inv_no, setInv_no] = useState('');
+  const [inv_amt, setInv_amt] = useState('');
+
+  function getBackUserRole(actorRole) {
+    switch (actorRole) {
+      case 'accounts_1st': return 'admin';
+      case 'accounts_2nd': return 'accounts_1st';
+      case 'accounts_3rd': return 'accounts_2nd';
+      case 'final_accountant': return 'accounts_3rd';
+      default: return null;
+    }
+  }
+
+  // Toast reject notifications on load/login for unseen reject actions for current user role
+  useEffect(() => {
+    async function showRejectNotifications() {
+      if (!role) return;
+      try {
+        const res = await fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
+        });
+        const data = await res.json();
+        if (data.logs && data.logs.length > 0) {
+          data.logs.forEach(log => {
+            if (
+              log.action === 'reject'  && log.seen === 0 &&
+              getBackUserRole(log.role) === role &&        
+              log.role !== role                                
+            ) {
+              toast(
+                <div>
+                  <strong>Invoice Rejected</strong>
+                  <div>Reason: {log.query || log.comment || '-'}</div>
+                  <div>Invoice: {log.invoice?.title || 'No title'}</div>
+                  <div>By: {log.user?.name || log.role}</div>
+                </div>,
+                { type: "error", position: "top-right", autoClose: 8000 }
+              );
+            }
+          });
+        }
+      } catch {
+        // optionally handle errors quietly
+      }
+    }
+    showRejectNotifications();
+  }, [role]);
 
   useEffect(() => {
     loadInvoices();
@@ -214,13 +270,16 @@ function Dashboard({ role, onLogout}) {
 
   async function handleUpload(e) {
     e.preventDefault();
-    if (!file || !title) {
-      setError('Title and file are required');
+    if (!file || !title || !inv_no || !inv_amt || !inv_type) {
+      setError('All fields and file are required');
       return;
     }
     setError('');
     const formData = new FormData();
     formData.append('title', title);
+    formData.append('inv_no', inv_no);
+    formData.append('inv_amt', inv_amt);
+    formData.append('inv_type', inv_type);
     formData.append('comment', comment);
     formData.append('document', file);
 
@@ -229,6 +288,9 @@ function Dashboard({ role, onLogout}) {
       setTitle('');
       setComment('');
       setFile(null);
+      setInv_no('');
+      setInv_amt('');
+      setInv_type('');
       setShowCreateModal(false); // close modal on success
       setRefresh(refresh + 1);
     } catch {
@@ -236,12 +298,47 @@ function Dashboard({ role, onLogout}) {
     }
   }
 
-  async function handleAction(id, chosenAction) {
-    const userComment = prompt('Add comment (optional):');
-    if (userComment === null) return;
+  // Open the action modal (replaces the native prompt)
+  function handleAction(id, chosenAction) {
+    setActionInvoiceId(id);
+    setActionType(chosenAction);
+    setActionComment('');
+    setActionQuery('');
+    setCommentError(false);
+    setQueryError(false);
+    setShowActionModal(true);
+  }
+
+  // Submit action from the modal WITH VALIDATION
+  async function submitAction() {
+    let valid = true;
+    if (!actionComment) {
+      setCommentError(true);
+      valid = false;
+    } else {
+      setCommentError(false);
+    }
+    if (actionType !== 'approve') {
+      if (!actionQuery) {
+        setQueryError(true);
+        valid = false;
+      } else {
+        setQueryError(false);
+      }
+    } else {
+      setQueryError(false);
+    }
+    if (!valid) return;
 
     try {
-      await actionInvoice(id, chosenAction, userComment || '');
+      await actionInvoice(actionInvoiceId, actionType, actionComment, actionQuery);
+      setShowActionModal(false);
+      setActionInvoiceId(null);
+      setActionType(null);
+      setActionComment('');
+      setActionQuery('');
+      setCommentError(false);
+      setQueryError(false);
       setRefresh(refresh + 1);
     } catch {
       alert('Failed to submit action');
@@ -282,38 +379,45 @@ function Dashboard({ role, onLogout}) {
       />
     );
   }
-  
 
   return (
     <div className="container dashboard-container">
       <div className="dashboard-header">
         <h2 className="dashboard-title">
-          {role === 'admin' ? 'Admin Dashboard' : `Dashboard — ${role}`}
+          {role === 'admin' ? 'Admin Dashboard ('+ department +')'  : `Dashboard — ${role}`}
         </h2>
-        <div>
+        
+        <div style={{display: "flex"}}>
           <NotificationBell role={role} onViewInvoiceHistory={id => { setShowInvoiceHistory(true); setHistoryInvoiceId(id); }} />
-          <button className="logout-btn" onClick={onLogout}>
-            Logout
-          </button>
+          <button className="logout-btn" onClick={onLogout}>Logout</button>
         </div>
       </div>
 
       {error && <div className="dashboard-error">{error}</div>}
 
-      {role === 'admin' && (
-        <div style={{ marginBottom: 20, marginTop: 20 }}>
-          <button className="dashboard-btn" onClick={() => setShowCreateModal(true)}>
-            Create Invoice
-          </button>
-        </div>
-      )}
-
-      <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)}>
-        <form className="dashboard-form modal-form" onSubmit={handleUpload}>
-          <label className="dashboard-label">Title</label>
-          <input className="dashboard-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Invoice title" />
+          {role === 'admin' && (
+            <div className="dashboard-create-wrap">
+              <button className="dashboard-btn" onClick={() => setShowCreateModal(true)}>
+                Create Invoice
+              </button>
+            </div>
+          )}
+          <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)}>
+            <form className="dashboard-form modal-form" onSubmit={handleUpload}>
+          <label className="dashboard-label">Company</label>
+          <input className="dashboard-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Invoice Company" />
+          <label className="dashboard-label">Invoice NO.</label>
+          <input className="dashboard-input" value={inv_no} onChange={e => setInv_no(e.target.value)} placeholder="Enter Invoice NO." />
+          <label className="dashboard-label">Invoice Amount</label>
+          <input className="dashboard-input" value={inv_amt} onChange={e => setInv_amt(e.target.value)} placeholder="Enter Invoice Amount" type="number" />
+          <label className="dashboard-label">Invoice Type</label>
+          <select className="dashboard-input" value={inv_type} onChange={e => setInv_type(e.target.value)}>
+            <option value="">Select Invoice Type</option>
+            <option value="PI">PI</option>
+            <option value="TI">TI</option>
+          </select>
           <label className="dashboard-label">Comment</label>
-          <textarea className="dashboard-input" value={comment} onChange={e => setComment(e.target.value)} placeholder="Comment (optional)" />
+          <textarea className="dashboard-input" value={comment} onChange={e => setComment(e.target.value)} placeholder="Comment" />
           <label className="dashboard-label">File (PDF/Image)</label>
           <input className="dashboard-input" type="file" accept=".pdf,image/*" onChange={e => setFile(e.target.files[0])} />
           <button type="submit" className="dashboard-btn">Upload</button>
@@ -326,13 +430,68 @@ function Dashboard({ role, onLogout}) {
         onSubmit={handleFinalUpload}
       />
 
+      <Modal open={showActionModal} onClose={() => setShowActionModal(false)}>
+        <div style={{ maxWidth: 520, minWidth: 260 }}>
+          <h3 style={{ marginTop: 0, color: '#085EE3' }}>{actionType ? `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} Invoice` : 'Confirm Action'}</h3>
+          <label style={{ display: 'block', marginTop: 8 }}>Comment</label>
+          <textarea
+            value={actionComment}
+            onChange={e => {
+              setActionComment(e.target.value);
+              setCommentError(false);
+            }}
+            style={{
+              width: '100%',
+              minHeight: 80,
+              padding: 8,
+              border: commentError ? '2px solid red' : undefined
+            }}
+            placeholder="Add comment"
+            required
+          />
+          {commentError && (
+            <div style={{ color: 'red', fontSize: 13, marginTop: 2 }}>Comment is required</div>
+          )}
+          {actionType !== 'approve' && (
+            <>
+              <label style={{ display: 'block', marginTop: 8 }}>Query</label>
+              <input
+                value={actionQuery}
+                onChange={e => {
+                  setActionQuery(e.target.value);
+                  setQueryError(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  border: queryError ? '2px solid red' : undefined
+                }}
+                placeholder="Enter Your Query"
+                required
+              />
+              {queryError && (
+                <div style={{ color: 'red', fontSize: 13, marginTop: 2 }}>Query is required</div>
+              )}
+            </>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+            <button type="button" className="dashboard-btn" onClick={() => setShowActionModal(false)}>Cancel</button>
+            <button type="button" className="dashboard-btn dashboard-approve-btn" onClick={submitAction}>Submit</button>
+          </div>
+        </div>
+      </Modal>
+
       <div className="dashboard-table-wrapper">
         <table className="dashboard-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Title</th>
+              <th>Sr No.</th>
+              <th>Company</th>
+              <th>Department</th>
               <th>Status</th>
+              <th>Invoice Type</th>
+              <th>Invoice No.</th>
+              <th>Invoice Amount</th>
               <th>Current Role</th>
               <th>Document</th>
               <th>Comment</th>
@@ -342,11 +501,15 @@ function Dashboard({ role, onLogout}) {
           <tbody>
             {invoices.length === 0 ? (
               <tr><td colSpan="7">No invoices found</td></tr>
-            ) : invoices.map(({ id, title, status, current_role, comment, document_url }, i) => (
+            ) : invoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document_url }, i) => (
               <tr key={id}>
                 <td>{i + 1}</td>
                 <td>{title}</td>
+                <td>{department}</td>
                 <td>{status}</td>
+                <td>{inv_type}</td>
+                <td>{inv_no}</td>
+                <td>{inv_amt}</td>
                 <td>{current_role}</td>
                 <td>
                   <a href={`http://localhost:8000${document_url}`} target="_blank" rel="noopener noreferrer">
