@@ -10,8 +10,33 @@ function Modal({ open, onClose, children }) {
   if (!open) return null;
   return (
     <div className="modal-backdrop">
-      <div className="modal-content">
-        <button className="modal-close-btn" onClick={onClose}>×</button>
+      <div className="modal-content" style={{
+        width: '95%',
+        maxWidth: '500px',
+        margin: '20px',
+        padding: '24px',
+        borderRadius: '12px',
+        backgroundColor: 'white',
+        position: 'relative',
+        maxHeight: '90vh',
+        overflowY: 'auto'
+      }}>
+        <button 
+          className="modal-close-btn" 
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            right: '16px',
+            top: '16px',
+            background: 'none',
+            border: 'none',
+            fontSize: '24px',
+            cursor: 'pointer',
+            color: '#6c757d',
+            padding: '4px 8px',
+            borderRadius: '4px'
+          }}
+        >×</button>
         {children}
       </div>
     </div>
@@ -403,26 +428,134 @@ function Dashboard({ role, department, onLogout }) {
             </div>
           )}
           <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)}>
-            <form className="dashboard-form modal-form" onSubmit={handleUpload}>
-          <label className="dashboard-label">Company</label>
-          <input className="dashboard-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Invoice Company" />
-          <label className="dashboard-label">Invoice NO.</label>
-          <input className="dashboard-input" value={inv_no} onChange={e => setInv_no(e.target.value)} placeholder="Enter Invoice NO." />
-          <label className="dashboard-label">Invoice Amount</label>
-          <input className="dashboard-input" value={inv_amt} onChange={e => setInv_amt(e.target.value)} placeholder="Enter Invoice Amount" type="number" />
-          <label className="dashboard-label">Invoice Type</label>
-          <select className="dashboard-input" value={inv_type} onChange={e => setInv_type(e.target.value)}>
-            <option value="">Select Invoice Type</option>
-            <option value="PI">PI</option>
-            <option value="TI">TI</option>
-          </select>
-          <label className="dashboard-label">Comment</label>
-          <textarea className="dashboard-input" value={comment} onChange={e => setComment(e.target.value)} placeholder="Comment" />
-          <label className="dashboard-label">File (PDF/Image)</label>
-          <input className="dashboard-input" type="file" accept=".pdf,image/*" onChange={e => setFile(e.target.files[0])} />
-          <button type="submit" className="dashboard-btn">Upload</button>
-        </form>
-      </Modal>
+            <h3 style={{ marginTop: 0, marginBottom: '24px', color: '#4158d0' }}>Create New Invoice</h3>
+            <form className="dashboard-form modal-form" onSubmit={handleUpload} style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '16px'
+            }}>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Company</label>
+                <input 
+                  className="dashboard-input" 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  placeholder="Invoice Company"
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice NO.</label>
+                <input 
+                  className="dashboard-input" 
+                  value={inv_no} 
+                  onChange={e => setInv_no(e.target.value)} 
+                  placeholder="Enter Invoice NO."
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Amount</label>
+                <input 
+                  className="dashboard-input" 
+                  value={inv_amt} 
+                  onChange={e => setInv_amt(e.target.value)} 
+                  placeholder="Enter Invoice Amount" 
+                  type="number"
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Type</label>
+                <select 
+                  className="dashboard-input" 
+                  value={inv_type} 
+                  onChange={e => setInv_type(e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="">Select Invoice Type</option>
+                  <option value="PI">PI</option>
+                  <option value="TI">TI</option>
+                </select>
+              </div>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Comment</label>
+                <textarea 
+                  className="dashboard-input" 
+                  value={comment} 
+                  onChange={e => setComment(e.target.value)} 
+                  placeholder="Comment"
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px',
+                    minHeight: '80px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              <div>
+                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>File (PDF/Image)</label>
+                <input 
+                  className="dashboard-input" 
+                  type="file" 
+                  accept=".pdf,image/*" 
+                  onChange={e => setFile(e.target.files[0])}
+                  style={{ 
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #ddd',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="dashboard-btn"
+                style={{
+                  marginTop: '8px',
+                  padding: '10px',
+                  backgroundColor: '#4158d0',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '500'
+                }}
+              >
+                Upload
+              </button>
+            </form>
+          </Modal>
 
       <FinalUploadModal
         open={finalModalOpen}

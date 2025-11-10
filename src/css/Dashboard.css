@@ -1,4 +1,30 @@
 
+/* Universal Custom Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c850c0 #f1f1f1;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #c850c0;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4158d0;
+}
+
 .dashboard-container {
 
   min-height: 100vh;
@@ -32,8 +58,8 @@
   width: 85vw;
   max-width: 1200px;
   padding: 32px 32px 18px 32px;
-  box-shadow: 0 6px 24px 0 rgba(34, 14, 81, 0.09);
-  border-radius: 0 0 18px 18px;
+  /* box-shadow: 0 6px 24px 0 rgba(34, 14, 81, 0.09); */
+  /* border-radius: 0 0 18px 18px; */
   margin-bottom: 28px;
 }
 
@@ -178,12 +204,15 @@
 .modal-content {
   background: #fff;
   border-radius: 18px;
-  padding: 36px 28px 24px 28px;
   width: 100%;
   max-width: 525px;
+  max-height: 90vh;
   box-shadow: 0 10px 28px rgba(65, 88, 208, 0.18);
   position: relative;
   animation: modalfadein 0.22s;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .modal-close-btn {
   position: absolute;
@@ -202,7 +231,10 @@
 }
 .modal-form {
   margin: 0;
-  padding: 0 0 0 0;
+  padding: 36px 28px 24px 28px;
+  overflow-y: auto;
+  max-height: calc(90vh - 60px); /* Accounting for padding */
+  overflow-x: hidden;
 }
 @keyframes modalfadein {
   0% { transform: translateY(-32px) scale(0.98); opacity: 0; }
