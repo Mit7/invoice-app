@@ -207,6 +207,18 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
 // Main Dashboard Component
 function Dashboard({ role, department, onLogout }) {
   const [invoices, setInvoices] = useState([]);
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
+  const [filters, setFilters] = useState({
+    // srNo: '',
+    title: '',
+    department: '',
+    status: '',
+    inv_type: '',
+    inv_no: '',
+    inv_amt: '',
+    current_role: '',
+    comment: ''
+  });
   const [title, setTitle] = useState('');
   const [comment, setComment] = useState('');
   const [file, setFile] = useState(null);
@@ -234,6 +246,8 @@ function Dashboard({ role, department, onLogout }) {
   const [inv_type, setInv_type] = useState('');
   const [inv_no, setInv_no] = useState('');
   const [inv_amt, setInv_amt] = useState('');
+
+  
 
   function getBackUserRole(actorRole) {
     switch (actorRole) {
@@ -283,6 +297,31 @@ function Dashboard({ role, department, onLogout }) {
   useEffect(() => {
     loadInvoices();
   }, [refresh]);
+
+  // Filter invoices when filters or invoices change
+  useEffect(() => {
+    const filtered = invoices.filter(invoice => {
+      return (
+        String(invoice.title || '').toLowerCase().includes(filters.title.toLowerCase()) &&
+        String(invoice.department || '').toLowerCase().includes(filters.department.toLowerCase()) &&
+        String(invoice.status || '').toLowerCase().includes(filters.status.toLowerCase()) &&
+        String(invoice.inv_type || '').toLowerCase().includes(filters.inv_type.toLowerCase()) &&
+        String(invoice.inv_no || '').toLowerCase().includes(filters.inv_no.toLowerCase()) &&
+        String(invoice.inv_amt || '').toLowerCase().includes(filters.inv_amt.toLowerCase()) &&
+        String(invoice.current_role || '').toLowerCase().includes(filters.current_role.toLowerCase()) &&
+        String(invoice.comment || '').toLowerCase().includes(filters.comment.toLowerCase())
+      );
+    });
+    setFilteredInvoices(filtered);
+  }, [filters, invoices]);
+
+  // Handle filter change
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
 
   async function loadInvoices() {
     try {
@@ -630,11 +669,97 @@ function Dashboard({ role, department, onLogout }) {
               <th>Comment</th>
               <th style={{ textAlign: 'center' }}>Actions</th>
             </tr>
+            <tr>
+              {/* <th>
+                <input
+                  type="text"
+                  placeholder="Filter Sr No."
+                  value={filters.srNo}
+                  onChange={(e) => handleFilterChange('srNo', e.target.value)}
+                  className="filter-input"
+                />
+              </th> */}
+              <th></th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Company"
+                  value={filters.title}
+                  onChange={(e) => handleFilterChange('title', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Department"
+                  value={filters.department}
+                  onChange={(e) => handleFilterChange('department', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Status"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Type"
+                  value={filters.inv_type}
+                  onChange={(e) => handleFilterChange('inv_type', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter No."
+                  value={filters.inv_no}
+                  onChange={(e) => handleFilterChange('inv_no', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Amount"
+                  value={filters.inv_amt}
+                  onChange={(e) => handleFilterChange('inv_amt', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Role"
+                  value={filters.current_role}
+                  onChange={(e) => handleFilterChange('current_role', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th></th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter Comment"
+                  value={filters.comment}
+                  onChange={(e) => handleFilterChange('comment', e.target.value)}
+                  className="filter-input"
+                />
+              </th>
+              <th></th>
+            </tr>
           </thead>
           <tbody>
-            {invoices.length === 0 ? (
-              <tr><td colSpan="7">No invoices found</td></tr>
-            ) : invoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document_url }, i) => (
+            {filteredInvoices.length === 0 ? (
+              <tr><td colSpan="11">No invoices found</td></tr>
+            ) : filteredInvoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document_url }, i) => (
               <tr key={id}>
                 <td>{i + 1}</td>
                 <td>{title}</td>

@@ -136,6 +136,30 @@
   font-weight: 700;
 }
 
+/* Filter input styles */
+.filter-input {
+  width: 100%;
+  padding: 6px 8px;
+  margin: 4px 0;
+  border: 1px solid #e3e6f0;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: white;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+  border-color: #4158d0;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(65, 88, 208, 0.1);
+}
+
+.filter-input::placeholder {
+  color: #a0aec0;
+  font-size: 0.8rem;
+}
+
 .dashboard-table tr:last-child td {
   border-bottom: none;
 }
