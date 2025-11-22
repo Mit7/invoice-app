@@ -1,5 +1,5 @@
 const API_BASE = 'http://localhost:8000/api';
-// const API_BASE = 'https://accounts.shreenarayanventures.in/backend/api';
+
 async function authFetch(url, options = {}) {
   const token = localStorage.getItem('auth_token');
   const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -44,10 +44,10 @@ export async function uploadInvoice(formData) {
   return res.json();
 }
 
-export async function actionInvoice(id, action, comment, feedback) {
+export async function actionInvoice(id, action, comment, feedback, rejectedRole) {
   return authFetch(`/invoices/${id}/action`, {
     method: 'POST',
-    body: JSON.stringify({ action, comment, feedback }),
+    body: JSON.stringify({ action, comment, feedback, rejectedRole }),
   });
 }
 

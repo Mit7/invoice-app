@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { getInvoices, uploadInvoice, actionInvoice } from './api';
 import FinalUploadModal from './FinalUploadModal';
-import axios from 'axios';
 import './css/Dashboard.css';
 
-// Simple modal component for form
 function Modal({ open, onClose, children }) {
   if (!open) return null;
   return (
@@ -21,8 +19,8 @@ function Modal({ open, onClose, children }) {
         maxHeight: '90vh',
         overflowY: 'auto'
       }}>
-        <button 
-          className="modal-close-btn" 
+        <button
+          className="modal-close-btn"
           onClick={onClose}
           style={{
             position: 'absolute',
@@ -43,7 +41,47 @@ function Modal({ open, onClose, children }) {
   );
 }
 
-// InvoiceHistoryPage component
+function ViewDocumentsModal({ open, onClose, documentField }) {
+  if (!open || !documentField) return null;
+
+  let documents = [];
+  try {
+    if (Array.isArray(documentField)) {
+      documents = documentField;
+    } else if (typeof documentField === "string" && documentField.trim().startsWith("[")) {
+      documents = JSON.parse(documentField);
+    } else if (typeof documentField === "string" && documentField !== "") {
+      documents = [documentField];
+    }
+  } catch {
+    documents = [documentField];
+  }
+
+  return (
+    <Modal open={open} onClose={onClose}>
+      <h3 style={{ marginTop: 0, color: "#085EE3" }}>Documents</h3>
+      {documents.length === 0 ? (
+        <div>No documents found.</div>
+      ) : (
+        <ol style={{ paddingLeft: 18 }}>
+          {documents.map((doc, idx) => (
+            <li key={idx} style={{ marginBottom: 8 }}>
+              <a
+                href={`http://localhost:8000/storage/${doc.replace(/^invoices[\\/]/, "invoices/")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#4158d0", fontWeight: 500 }}
+              >
+                {`Document ${idx + 1}`}
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Modal>
+  );
+}
+
 function InvoiceHistoryPage({ invoiceId, onBack }) {
   const [history, setHistory] = useState([]);
   const [invoice, setInvoice] = useState(null);
@@ -101,11 +139,11 @@ function InvoiceHistoryPage({ invoiceId, onBack }) {
   );
 }
 
-// NotificationBell component (unchanged)
 function NotificationBell({ role, onViewInvoiceHistory }) {
   const [logs, setLogs] = useState([]);
   const [unseen, setUnseen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+
   useEffect(() => {
     if (!role) return;
     fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
@@ -131,7 +169,6 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
         setShowDropdown(false);
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDropdown]);
@@ -189,9 +226,9 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
                 onClick={e => { e.preventDefault(); onViewInvoiceHistory && onViewInvoiceHistory(log.invoice_id); }}
                 title="View invoice history"
               >
-                {log.invoice?.title +' ('+ log.invoice.department + ')' || "No title"}
+                {log.invoice?.title + ' (' + log.invoice.department + ')' || "No title"}
               </a>
-              <b>{log.role }</b> <em>{log.action.toUpperCase()}</em> : {log.comment || '(no comment)'}
+              <b>{log.role}</b> <em>{log.action.toUpperCase()}</em> : {log.comment || '(no comment)'}
               <div style={{ fontSize: '0.85em', color: '#666' }}>
                 {new Date(log.created_at).toLocaleString()}
               </div>
@@ -203,13 +240,10 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
   )
 }
 
-
-// Main Dashboard Component
 function Dashboard({ role, department, onLogout }) {
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [filters, setFilters] = useState({
-    // srNo: '',
     title: '',
     department: '',
     status: '',
@@ -221,18 +255,16 @@ function Dashboard({ role, department, onLogout }) {
   });
   const [title, setTitle] = useState('');
   const [comment, setComment] = useState('');
-  const [file, setFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
 
-  // For invoice history and final upload modals
   const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
   const [historyInvoiceId, setHistoryInvoiceId] = useState(null);
 
   const [finalModalOpen, setFinalModalOpen] = useState(false);
   const [finalModalInvoiceId, setFinalModalInvoiceId] = useState(null);
 
-  // Action modal (replace native prompt with a 2-field modal)
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionInvoiceId, setActionInvoiceId] = useState(null);
   const [actionType, setActionType] = useState(null);
@@ -241,54 +273,73 @@ function Dashboard({ role, department, onLogout }) {
   const [commentError, setCommentError] = useState(false);
   const [queryError, setQueryError] = useState(false);
 
-  // Modal state for create invoice form
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [inv_type, setInv_type] = useState('');
   const [inv_no, setInv_no] = useState('');
   const [inv_amt, setInv_amt] = useState('');
 
-  
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [docModalFiles, setDocModalFiles] = useState(null);
 
-  function getBackUserRole(actorRole) {
-    switch (actorRole) {
-      case 'accounts_1st': return 'admin';
-      case 'accounts_2nd': return 'accounts_1st';
-      case 'accounts_3rd': return 'accounts_2nd';
-      case 'final_accountant': return 'accounts_3rd';
-      default: return null;
-    }
-  }
+  // NEW: track if we are making corrections (editing an existing invoice)
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [roleError, setRoleError] = useState(false);
 
-  // Toast reject notifications on load/login for unseen reject actions for current user role
+  // function getBackUserRole(actorRole) {
+  //   switch (actorRole) {
+  //     case 'accounts_1st': return 'admin';
+  //     case 'accounts_2nd': return 'accounts_1st';
+  //     case 'accounts_3rd': return 'accounts_2nd';
+  //     case 'final_accountant': return 'accounts_3rd';
+  //     default: return null;
+  //   }
+  // }
+
   useEffect(() => {
     async function showRejectNotifications() {
+      
       if (!role) return;
       try {
         const res = await fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
           headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
         });
+        
         const data = await res.json();
         if (data.logs && data.logs.length > 0) {
+                 
           data.logs.forEach(log => {
-            if (
-              log.action === 'reject'  && log.seen === 0 &&
-              getBackUserRole(log.role) === role &&        
-              log.role !== role                                
-            ) {
-              toast(
-                <div>
-                  <strong>Invoice Rejected</strong>
-                  <div>Reason: {log.query || log.comment || '-'}</div>
-                  <div>Invoice: {log.invoice?.title || 'No title'}</div>
-                  <div>By: {log.user?.name || log.role}</div>
-                </div>,
-                { type: "error", position: "top-right", autoClose: 8000 }
-              );
+      console.log( log);
+            if (log.action === "reject" && log.seen === 0) {
+ console.log('Checking for rejection notifications for role:', role);
+              const invoice = log.invoice;
+              let rejectedTo = invoice?.rejectedTo_role;
+
+              // Fix: ensure array
+              if (typeof rejectedTo === "string") {
+                  try { rejectedTo = JSON.parse(rejectedTo); 
+                    
+                  } 
+                  catch { rejectedTo = []; }
+              }
+console.log('Parsed rejectedTo_role:', rejectedTo);
+              if (Array.isArray(rejectedTo) && rejectedTo.includes(role)) {
+                  // THIS USER SHOULD SEE THE REJECTION NOTIFICATION
+                  toast(
+                      <div>
+                        <strong>Invoice Rejected</strong>
+                        <div>Reason: {log.query || log.comment || '-'}</div>
+                        <div>Invoice: {invoice?.title || 'No title'}</div>
+                        <div>By: {log.user?.name || log.role}</div>
+                      </div>,
+                      { type: "error", position: "top-right", autoClose: 8000 }
+                  );
+              }
             }
+
           });
         }
       } catch {
-        // optionally handle errors quietly
       }
     }
     showRejectNotifications();
@@ -298,7 +349,6 @@ function Dashboard({ role, department, onLogout }) {
     loadInvoices();
   }, [refresh]);
 
-  // Filter invoices when filters or invoices change
   useEffect(() => {
     const filtered = invoices.filter(invoice => {
       return (
@@ -315,7 +365,6 @@ function Dashboard({ role, department, onLogout }) {
     setFilteredInvoices(filtered);
   }, [filters, invoices]);
 
-  // Handle filter change
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
@@ -332,9 +381,34 @@ function Dashboard({ role, department, onLogout }) {
     }
   }
 
+  const handleFileChange = (e) => {
+    setSelectedFiles(Array.from(e.target.files));
+  };
+  const removeFile = (idx) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // NEW: common function to reset modal form state
+  const resetCreateFormState = () => {
+    setTitle('');
+    setComment('');
+    setInv_no('');
+    setInv_amt('');
+    setInv_type('');
+    setSelectedFiles([]);
+    setError('');
+  };
+
+  // NEW: close handler for create/correction modal
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setEditingInvoice(null);
+    resetCreateFormState();
+  };
+
   async function handleUpload(e) {
     e.preventDefault();
-    if (!file || !title || !inv_no || !inv_amt || !inv_type) {
+    if (!selectedFiles.length || !title || !inv_no || !inv_amt || !inv_type) {
       setError('All fields and file are required');
       return;
     }
@@ -345,24 +419,27 @@ function Dashboard({ role, department, onLogout }) {
     formData.append('inv_amt', inv_amt);
     formData.append('inv_type', inv_type);
     formData.append('comment', comment);
-    formData.append('document', file);
+    formData.append('correction', editingInvoice ? '1' : '0');
+    // If you later want to support backend "update invoice" for corrections,
+    // you can send the id here:
+    if (editingInvoice && editingInvoice.id) {
+      formData.append('invoice_id', editingInvoice.id);
+    }
 
+    for (let i = 0; i < selectedFiles.length; i++) {
+      formData.append('document[]', selectedFiles[i]);
+    }
     try {
       await uploadInvoice(formData);
-      setTitle('');
-      setComment('');
-      setFile(null);
-      setInv_no('');
-      setInv_amt('');
-      setInv_type('');
-      setShowCreateModal(false); // close modal on success
+      resetCreateFormState();
+      setEditingInvoice(null);
+      setShowCreateModal(false);
       setRefresh(refresh + 1);
     } catch {
       setError('Upload failed');
     }
   }
 
-  // Open the action modal (replaces the native prompt)
   function handleAction(id, chosenAction) {
     setActionInvoiceId(id);
     setActionType(chosenAction);
@@ -373,7 +450,6 @@ function Dashboard({ role, department, onLogout }) {
     setShowActionModal(true);
   }
 
-  // Submit action from the modal WITH VALIDATION
   async function submitAction() {
     let valid = true;
     if (!actionComment) {
@@ -383,24 +459,32 @@ function Dashboard({ role, department, onLogout }) {
       setCommentError(false);
     }
     if (actionType !== 'approve') {
-      if (!actionQuery) {
-        setQueryError(true);
-        valid = false;
-      } else {
-        setQueryError(false);
-      }
+          if (!actionQuery) {
+            setQueryError(true);
+            valid = false;
+          } else {
+            setQueryError(false);
+          }
+          if (!selectedRole) {
+            setRoleError(true);
+            valid = false;
+          } else {
+            setRoleError(false);
+          }
     } else {
-      setQueryError(false);
+          setQueryError(false);
+          setRoleError(false);
     }
     if (!valid) return;
 
     try {
-      await actionInvoice(actionInvoiceId, actionType, actionComment, actionQuery);
+      await actionInvoice(actionInvoiceId, actionType, actionComment, actionQuery, selectedRole);
       setShowActionModal(false);
       setActionInvoiceId(null);
       setActionType(null);
       setActionComment('');
       setActionQuery('');
+      setSelectedRole('');
       setCommentError(false);
       setQueryError(false);
       setRefresh(refresh + 1);
@@ -409,7 +493,6 @@ function Dashboard({ role, department, onLogout }) {
     }
   }
 
-  // Handle final accountant modal submission
   async function handleFinalUpload(action, file, comment) {
     if (!file && action === 'approve') {
       alert('File is required to approve the final document.');
@@ -435,6 +518,19 @@ function Dashboard({ role, department, onLogout }) {
     }
   }
 
+  // NEW: open create modal specifically for corrections
+  const handleOpenCorrectionModal = (invoice) => {
+    setEditingInvoice(invoice);
+    setTitle(invoice.title || '');
+    setInv_no(invoice.inv_no || '');
+    setInv_amt(invoice.inv_amt || '');
+    setInv_type(invoice.inv_type || '');
+    setComment(invoice.comment || '');
+    setSelectedFiles([]); // IMPORTANT: do not pre-fill File(PDF/Image)
+    setError('');
+    setShowCreateModal(true);
+  };
+
   if (showInvoiceHistory && historyInvoiceId) {
     return (
       <InvoiceHistoryPage
@@ -448,160 +544,196 @@ function Dashboard({ role, department, onLogout }) {
     <div className="container dashboard-container">
       <div className="dashboard-header">
         <h2 className="dashboard-title">
-          {role === 'admin' ? 'Admin Dashboard ('+ department +')'  : `Dashboard — ${role}`}
+          {role === 'admin' ? 'Admin Dashboard (' + department + ')' : `Dashboard — ${role}`}
         </h2>
-        
-        <div style={{display: "flex"}}>
+        <div style={{ display: "flex" }}>
           <NotificationBell role={role} onViewInvoiceHistory={id => { setShowInvoiceHistory(true); setHistoryInvoiceId(id); }} />
           <button className="logout-btn" onClick={onLogout}>Logout</button>
         </div>
       </div>
-
       {error && <div className="dashboard-error">{error}</div>}
-
-          {role === 'admin' && (
-            <div className="dashboard-create-wrap">
-              <button className="dashboard-btn" onClick={() => setShowCreateModal(true)}>
-                Create Invoice
-              </button>
+      {role === 'admin' && (
+        <div className="dashboard-create-wrap">
+          <button
+            className="dashboard-btn"
+            onClick={() => {
+              // normal create mode
+              setEditingInvoice(null);
+              resetCreateFormState();
+              setShowCreateModal(true);
+            }}
+          >
+            Create Invoice
+          </button>
+        </div>
+      )}
+      <Modal open={showCreateModal} onClose={handleCloseCreateModal}>
+        <h3 style={{ marginTop: 0, marginBottom: '24px', color: '#4158d0' }}>
+          {editingInvoice ? 'Make Corrections (Update Invoice)' : 'Create New Invoice'}
+           
+        </h3>
+        <form className="dashboard-form modal-form" onSubmit={handleUpload} style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Company</label>
+            <input
+              className="dashboard-input"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Invoice Company"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice NO.</label>
+            <input
+              className="dashboard-input"
+              value={inv_no}
+              onChange={e => setInv_no(e.target.value)}
+              placeholder="Enter Invoice NO."
+              readOnly={!!editingInvoice}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Amount</label>
+            <input
+              className="dashboard-input"
+              value={inv_amt}
+              onChange={e => setInv_amt(e.target.value)}
+              placeholder="Enter Invoice Amount"
+              type="number"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd', 
+                fontSize: '14px'
+              }}
+            />
+          </div>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Type</label>
+            <select
+              className="dashboard-input"
+              value={inv_type}
+              onChange={e => setInv_type(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px',
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="">Select Invoice Type</option>
+              <option value="PI">PI</option>
+              <option value="TI">TI</option>
+            </select>
+          </div>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Comment</label>
+            <textarea
+              className="dashboard-input"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Comment"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid ' + '#ddd',
+                fontSize: '14px',
+                minHeight: '80px',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+          <div>
+            <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>File (PDF/Image)</label>
+            <input
+              className="dashboard-input"
+              type="file"
+              accept=".pdf,image/*"
+              multiple
+              onChange={handleFileChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px'
+              }}
+            />
+            <div style={{ marginTop: 8 }}>
+              {selectedFiles.map((file, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: '#f7f7f7',
+                  marginBottom: 4,
+                  padding: '6px 12px',
+                  borderRadius: 4
+                }}>
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(idx)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#d9534f',
+                      fontSize: 16,
+                      cursor: 'pointer',
+                      marginLeft: 10
+                    }}
+                    title="Remove file"
+                  >✖</button>
+                </div>
+              ))}
             </div>
-          )}
-          <Modal open={showCreateModal} onClose={() => setShowCreateModal(false)}>
-            <h3 style={{ marginTop: 0, marginBottom: '24px', color: '#4158d0' }}>Create New Invoice</h3>
-            <form className="dashboard-form modal-form" onSubmit={handleUpload} style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '16px'
-            }}>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Company</label>
-                <input 
-                  className="dashboard-input" 
-                  value={title} 
-                  onChange={e => setTitle(e.target.value)} 
-                  placeholder="Invoice Company"
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice NO.</label>
-                <input 
-                  className="dashboard-input" 
-                  value={inv_no} 
-                  onChange={e => setInv_no(e.target.value)} 
-                  placeholder="Enter Invoice NO."
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Amount</label>
-                <input 
-                  className="dashboard-input" 
-                  value={inv_amt} 
-                  onChange={e => setInv_amt(e.target.value)} 
-                  placeholder="Enter Invoice Amount" 
-                  type="number"
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Invoice Type</label>
-                <select 
-                  className="dashboard-input" 
-                  value={inv_type} 
-                  onChange={e => setInv_type(e.target.value)}
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option value="">Select Invoice Type</option>
-                  <option value="PI">PI</option>
-                  <option value="TI">TI</option>
-                </select>
-              </div>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Comment</label>
-                <textarea 
-                  className="dashboard-input" 
-                  value={comment} 
-                  onChange={e => setComment(e.target.value)} 
-                  placeholder="Comment"
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px',
-                    minHeight: '80px',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-              <div>
-                <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>File (PDF/Image)</label>
-                <input 
-                  className="dashboard-input" 
-                  type="file" 
-                  accept=".pdf,image/*" 
-                  onChange={e => setFile(e.target.files[0])}
-                  style={{ 
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <button 
-                type="submit" 
-                className="dashboard-btn"
-                style={{
-                  marginTop: '8px',
-                  padding: '10px',
-                  backgroundColor: '#4158d0',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '500'
-                }}
-              >
-                Upload
-              </button>
-            </form>
-          </Modal>
-
+          </div>
+          <button
+            type="submit"
+            className="dashboard-btn"
+            style={{
+              marginTop: '8px',
+              padding: '10px',
+              backgroundColor: '#4158d0',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}
+          >
+            {editingInvoice ? 'Save Corrections' : 'Upload'}
+          </button>
+        </form>
+      </Modal>
       <FinalUploadModal
         open={finalModalOpen}
         onClose={() => { setFinalModalOpen(false); setFinalModalInvoiceId(null); }}
         onSubmit={handleFinalUpload}
       />
-
       <Modal open={showActionModal} onClose={() => setShowActionModal(false)}>
         <div style={{ maxWidth: 520, minWidth: 260 }}>
           <h3 style={{ marginTop: 0, color: '#085EE3' }}>{actionType ? `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} Invoice` : 'Confirm Action'}</h3>
@@ -644,6 +776,29 @@ function Dashboard({ role, department, onLogout }) {
               {queryError && (
                 <div style={{ color: 'red', fontSize: 13, marginTop: 2 }}>Query is required</div>
               )}
+               <label style={{ display: 'block', marginTop: 10 }}>Select Role</label>
+              <select
+                value={selectedRole}
+                onChange={e => {
+                  setSelectedRole(e.target.value);
+                  setRoleError(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  borderRadius: 6,
+                  border: roleError ? '2px solid red' : '1px solid #ccc'
+                }}
+              >
+                <option value="">-- Select Role --</option>
+                <option value="admin">Admin</option>
+                <option value="accounts_1st">Accounts 1st</option>
+                <option value="accounts_2nd">Accounts 2nd</option>
+                <option value="accounts_3rd">Accounts 3rd</option>
+              </select>
+              {roleError && (
+                <div style={{ color: 'red', fontSize: 13, marginTop: 2 }}>Role selection is required</div>
+              )}
             </>
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
@@ -652,12 +807,17 @@ function Dashboard({ role, department, onLogout }) {
           </div>
         </div>
       </Modal>
-
+      <ViewDocumentsModal
+        open={showDocModal}
+        onClose={() => { setShowDocModal(false); setDocModalFiles(null); }}
+        documentField={docModalFiles}
+      />
       <div className="dashboard-table-wrapper">
         <table className="dashboard-table">
           <thead>
             <tr>
               <th>Sr No.</th>
+              <th style={{ textAlign: 'center' }}>Actions</th>
               <th>Company</th>
               <th>Department</th>
               <th>Status</th>
@@ -667,19 +827,11 @@ function Dashboard({ role, department, onLogout }) {
               <th>Current Role</th>
               <th style={{ textAlign: 'center' }}>Document</th>
               <th>Comment</th>
-              <th style={{ textAlign: 'center' }}>Actions</th>
+             
             </tr>
             <tr>
-              {/* <th>
-                <input
-                  type="text"
-                  placeholder="Filter Sr No."
-                  value={filters.srNo}
-                  onChange={(e) => handleFilterChange('srNo', e.target.value)}
-                  className="filter-input"
-                />
-              </th> */}
               <th></th>
+               <th></th>
               <th>
                 <input
                   type="text"
@@ -753,34 +905,15 @@ function Dashboard({ role, department, onLogout }) {
                   className="filter-input"
                 />
               </th>
-              <th></th>
+             
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
               <tr><td colSpan="11">No invoices found</td></tr>
-            ) : filteredInvoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document_url }, i) => (
+            ) : filteredInvoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document }, i) => (
               <tr key={id}>
                 <td>{i + 1}</td>
-                <td>{title}</td>
-                <td>{department}</td>
-                <td>{status}</td>
-                <td>{inv_type}</td>
-                <td>{inv_no}</td>
-                <td>{inv_amt}</td>
-                <td>{current_role}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <a href={`http://localhost:8000${document_url}`} target="_blank" rel="noopener noreferrer">
-                    <button 
-                      className="dashboard-btn dashboard-view-btn" 
-                      title="View Document"
-                      style={{ padding: '6px', minWidth: 'auto', width: '32px', height: '32px' }}
-                    >
-                      <i className="fas fa-file-alt" style={{ color: 'white', fontSize: '0.9rem' }}></i>
-                    </button>
-                  </a>
-                </td>
-                <td>{role === 'admin' ? comment : null}</td>
                 <td style={{ textAlign: 'center' }}>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                     <button
@@ -807,18 +940,18 @@ function Dashboard({ role, department, onLogout }) {
                         <i className="fas fa-upload" style={{ color: 'white', fontSize: '0.9rem' }}></i>
                       </button>
                     )}
-                    {role !== 'admin' && current_role === role && status !== 'completed' && (
+                    {role !== 'admin' && status !== 'completed' && (
                       <>
-                        <button 
-                          className="dashboard-btn dashboard-approve-btn" 
+                        <button
+                          className="dashboard-btn dashboard-approve-btn"
                           onClick={() => handleAction(id, 'approve')}
                           title="Approve Invoice"
                           style={{ padding: '6px', minWidth: 'auto', width: '32px', height: '32px' }}
                         >
                           <i className="fas fa-check" style={{ color: 'white', fontSize: '0.9rem' }}></i>
                         </button>
-                        <button 
-                          className="dashboard-btn dashboard-reject-btn" 
+                        <button
+                          className="dashboard-btn dashboard-reject-btn"
                           onClick={() => handleAction(id, 'reject')}
                           title="Reject Invoice"
                           style={{ padding: '6px', minWidth: 'auto', width: '32px', height: '32px' }}
@@ -827,8 +960,58 @@ function Dashboard({ role, department, onLogout }) {
                         </button>
                       </>
                     )}
+                    {/* NEW: Corrections icon – visible when status is rejected.
+                        I assumed only admin can correct; remove "role === 'admin'" if others should see it too. */}
+                    {role === 'admin' && status === 'rejected' && (
+                      <button
+                        className="dashboard-btn dashboard-correction-btn"
+                        onClick={() => handleOpenCorrectionModal({
+                          id,
+                          title,
+                          department,
+                          status,
+                          inv_type,
+                          inv_no,
+                          inv_amt,
+                          current_role,
+                          comment
+                        })}
+                        title="Make Corrections"
+                        style={{
+                          padding: '6px',
+                          minWidth: 'auto',
+                          width: '32px',
+                          height: '32px',
+                          backgroundColor: '#dc3545' // red background
+                        }}
+                      >
+                        <i className="fa fa-pen" style={{ color: 'white', fontSize: '0.9rem' }}></i>
+                      </button>
+                    )}
                   </div>
                 </td>
+                <td>{title}</td>
+                <td>{department}</td>
+                <td>{status}</td>
+                <td>{inv_type}</td>
+                <td>{inv_no}</td>
+                <td>{inv_amt}</td>
+                <td>{current_role}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <button
+                    className="dashboard-btn dashboard-view-btn"
+                    title="View Documents"
+                    style={{ padding: '6px', minWidth: 'auto', width: '32px', height: '32px' }}
+                    onClick={() => {
+                      setDocModalFiles(document);
+                      setShowDocModal(true);
+                    }}
+                  >
+                    <i className="fas fa-file-alt" style={{ color: 'white', fontSize: '0.9rem' }}></i>
+                  </button>
+                </td>
+                <td>{comment }</td>
+                
               </tr>
             ))}
           </tbody>
