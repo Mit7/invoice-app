@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { getInvoices, uploadInvoice, actionInvoice } from './api';
 import FinalUploadModal from './FinalUploadModal';
 import './css/Dashboard.css';
+import InvoiceHistoryPage from "./InvoiceHistoryPage";
 
 function Modal({ open, onClose, children }) {
   if (!open) return null;
@@ -60,84 +61,65 @@ function ViewDocumentsModal({ open, onClose, documentField }) {
   return (
     <Modal open={open} onClose={onClose}>
       <h3 style={{ marginTop: 0, color: "#085EE3" }}>Documents</h3>
+
       {documents.length === 0 ? (
         <div>No documents found.</div>
       ) : (
-        <ol style={{ paddingLeft: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {documents.map((doc, idx) => (
-            <li key={idx} style={{ marginBottom: 8 }}>
-              <a
-                href={`http://localhost:8000/storage/${doc.replace(/^invoices[\\/]/, "invoices/")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#4158d0", fontWeight: 500 }}
-              >
-                {`Document ${idx + 1}`}
-              </a>
-            </li>
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px",
+                background: "#f8f9fa",
+                borderRadius: "6px",
+              }}
+            >
+              <b>Doc {idx + 1}</b>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                {/* VIEW */}
+                <a
+                  href={`http://localhost:8000/storage/${doc}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    background: "#007bff",
+                    padding: "6px 10px",
+                    borderRadius: 5,
+                    color: "white",
+                    textDecoration: "none"
+                  }}
+                >
+                  👁️ View
+                </a>
+
+                {/* DOWNLOAD */}
+                <a
+                  href={`http://localhost:8000/storage/${doc}`}
+                  download
+                  style={{
+                    background: "#28a745",
+                    padding: "6px 10px",
+                    borderRadius: 5,
+                    color: "white",
+                    textDecoration: "none"
+                  }}
+                >
+                  ⬇️ Download
+                </a>
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
       )}
     </Modal>
   );
 }
 
-function InvoiceHistoryPage({ invoiceId, onBack }) {
-  const [history, setHistory] = useState([]);
-  const [invoice, setInvoice] = useState(null);
-
-  useEffect(() => {
-    fetch(`http://localhost:8000/api/logs/invoice/${invoiceId}`, {
-      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setInvoice(data.invoice || null);
-        setHistory(data.logs || []);
-      });
-  }, [invoiceId]);
-
-  return (
-    <div className="container">
-      <button onClick={onBack} style={{ marginBottom: 14 }}>← Back</button>
-      <h2 style={{ color: '#085EE3' }}>{invoice ? `Invoice: ${invoice.title}` : 'Invoice History'}</h2>
-      <h4>Department: {invoice?.department || "-"}</h4>
-      <h4>Status: {invoice?.status || "-"}</h4>
-      <h4>Current Role: {invoice?.current_role || "-"}</h4>
-      {invoice?.final_document && (
-        <div style={{ margin: '14px 0' }}>
-          <a href={`http://localhost:8000/storage/${invoice.final_document}`} target="_blank" rel="noopener noreferrer" style={{ color: '#28A745', fontWeight: 600 }}>
-            View Final Document
-          </a>
-        </div>
-      )}
-      <hr />
-      <h3>Action History</h3>
-      {history.length === 0 ? "No history found." :
-        <table style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>User/Role</th>
-              <th>Action</th>
-              <th>Comment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map(entry =>
-              <tr key={entry.id}>
-                <td>{new Date(entry.created_at).toLocaleString()}</td>
-                <td>{entry.user?.name || entry.role}</td>
-                <td><b>{entry.action.toUpperCase()}</b></td>
-                <td>{entry.comment || '-'}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      }
-    </div>
-  );
-}
 
 function NotificationBell({ role, onViewInvoiceHistory }) {
   const [logs, setLogs] = useState([]);
@@ -281,62 +263,49 @@ function Dashboard({ role, department, onLogout }) {
   const [showDocModal, setShowDocModal] = useState(false);
   const [docModalFiles, setDocModalFiles] = useState(null);
 
+  // NEW: PAN + KYC for create invoice only
+  const [pan, setPan] = useState("");
+  const [kycRequired, setKycRequired] = useState("no");
+  const [kycFiles, setKycFiles] = useState([]);
+
   // NEW: track if we are making corrections (editing an existing invoice)
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [roleError, setRoleError] = useState(false);
 
-  // function getBackUserRole(actorRole) {
-  //   switch (actorRole) {
-  //     case 'accounts_1st': return 'admin';
-  //     case 'accounts_2nd': return 'accounts_1st';
-  //     case 'accounts_3rd': return 'accounts_2nd';
-  //     case 'final_accountant': return 'accounts_3rd';
-  //     default: return null;
-  //   }
-  // }
-
   useEffect(() => {
     async function showRejectNotifications() {
-      
       if (!role) return;
       try {
         const res = await fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
           headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
         });
-        
+
         const data = await res.json();
         if (data.logs && data.logs.length > 0) {
-                 
           data.logs.forEach(log => {
-      console.log( log);
             if (log.action === "reject" && log.seen === 0) {
- console.log('Checking for rejection notifications for role:', role);
+              console.log('Checking for rejection notifications for role:', role);
               const invoice = log.invoice;
               let rejectedTo = invoice?.rejectedTo_role;
 
-              // Fix: ensure array
               if (typeof rejectedTo === "string") {
-                  try { rejectedTo = JSON.parse(rejectedTo); 
-                    
-                  } 
-                  catch { rejectedTo = []; }
+                try { rejectedTo = JSON.parse(rejectedTo); }
+                catch { rejectedTo = []; }
               }
-console.log('Parsed rejectedTo_role:', rejectedTo);
+              console.log('Parsed rejectedTo_role:', rejectedTo);
               if (Array.isArray(rejectedTo) && rejectedTo.includes(role)) {
-                  // THIS USER SHOULD SEE THE REJECTION NOTIFICATION
-                  toast(
-                      <div>
-                        <strong>Invoice Rejected</strong>
-                        <div>Reason: {log.query || log.comment || '-'}</div>
-                        <div>Invoice: {invoice?.title || 'No title'}</div>
-                        <div>By: {log.user?.name || log.role}</div>
-                      </div>,
-                      { type: "error", position: "top-right", autoClose: 8000 }
-                  );
+                toast(
+                  <div>
+                    <strong>Invoice Rejected</strong>
+                    <div>Reason: {log.query || log.comment || '-'}</div>
+                    <div>Invoice: {invoice?.title || 'No title'}</div>
+                    <div>By: {log.user?.name || log.role}</div>
+                  </div>,
+                  { type: "error", position: "top-right", autoClose: 8000 }
+                );
               }
             }
-
           });
         }
       } catch {
@@ -388,7 +357,6 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
     setSelectedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // NEW: common function to reset modal form state
   const resetCreateFormState = () => {
     setTitle('');
     setComment('');
@@ -397,9 +365,13 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
     setInv_type('');
     setSelectedFiles([]);
     setError('');
+
+    // reset PAN & KYC only for create mode
+    setPan("");
+    setKycRequired("no");
+    setKycFiles([]);
   };
 
-  // NEW: close handler for create/correction modal
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
     setEditingInvoice(null);
@@ -408,10 +380,17 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
 
   async function handleUpload(e) {
     e.preventDefault();
-    if (!selectedFiles.length || !title || !inv_no || !inv_amt || !inv_type) {
-      setError('All fields and file are required');
+
+    if (!selectedFiles.length || !title || !inv_no || !inv_amt || !inv_type || (!editingInvoice && !pan)) {
+      setError('All fields and file are required (including PAN for new invoice)');
       return;
     }
+
+    if (!editingInvoice && kycRequired === "yes" && kycFiles.length === 0) {
+      setError('Please upload KYC documents when KYC is required.');
+      return;
+    }
+
     setError('');
     const formData = new FormData();
     formData.append('title', title);
@@ -420,15 +399,24 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
     formData.append('inv_type', inv_type);
     formData.append('comment', comment);
     formData.append('correction', editingInvoice ? '1' : '0');
-    // If you later want to support backend "update invoice" for corrections,
-    // you can send the id here:
+
     if (editingInvoice && editingInvoice.id) {
       formData.append('invoice_id', editingInvoice.id);
+    }
+
+    // Only on create invoice
+    if (!editingInvoice) {
+      formData.append('pan', pan);
+      formData.append('kyc_required', kycRequired);
+      if (kycRequired === 'yes') {
+        kycFiles.forEach(f => formData.append('kyc_docs[]', f));
+      }
     }
 
     for (let i = 0; i < selectedFiles.length; i++) {
       formData.append('document[]', selectedFiles[i]);
     }
+
     try {
       await uploadInvoice(formData);
       resetCreateFormState();
@@ -459,21 +447,21 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
       setCommentError(false);
     }
     if (actionType !== 'approve') {
-          if (!actionQuery) {
-            setQueryError(true);
-            valid = false;
-          } else {
-            setQueryError(false);
-          }
-          if (!selectedRole) {
-            setRoleError(true);
-            valid = false;
-          } else {
-            setRoleError(false);
-          }
+      if (!actionQuery) {
+        setQueryError(true);
+        valid = false;
+      } else {
+        setQueryError(false);
+      }
+      if (!selectedRole) {
+        setRoleError(true);
+        valid = false;
+      } else {
+        setRoleError(false);
+      }
     } else {
-          setQueryError(false);
-          setRoleError(false);
+      setQueryError(false);
+      setRoleError(false);
     }
     if (!valid) return;
 
@@ -518,7 +506,6 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
     }
   }
 
-  // NEW: open create modal specifically for corrections
   const handleOpenCorrectionModal = (invoice) => {
     setEditingInvoice(invoice);
     setTitle(invoice.title || '');
@@ -526,7 +513,7 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
     setInv_amt(invoice.inv_amt || '');
     setInv_type(invoice.inv_type || '');
     setComment(invoice.comment || '');
-    setSelectedFiles([]); // IMPORTANT: do not pre-fill File(PDF/Image)
+    setSelectedFiles([]);
     setError('');
     setShowCreateModal(true);
   };
@@ -557,7 +544,6 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
           <button
             className="dashboard-btn"
             onClick={() => {
-              // normal create mode
               setEditingInvoice(null);
               resetCreateFormState();
               setShowCreateModal(true);
@@ -570,13 +556,16 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
       <Modal open={showCreateModal} onClose={handleCloseCreateModal}>
         <h3 style={{ marginTop: 0, marginBottom: '24px', color: '#4158d0' }}>
           {editingInvoice ? 'Make Corrections (Update Invoice)' : 'Create New Invoice'}
-           
         </h3>
-        <form className="dashboard-form modal-form" onSubmit={handleUpload} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
+        <form
+          className="dashboard-form modal-form"
+          onSubmit={handleUpload}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}
+        >
           <div>
             <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Company</label>
             <input
@@ -622,7 +611,7 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                border: '1px solid #ddd', 
+                border: '1px solid #ddd',
                 fontSize: '14px'
               }}
             />
@@ -647,6 +636,69 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
               <option value="TI">TI</option>
             </select>
           </div>
+
+          
+          {/* KYC Required & KYC Docs  */}
+      
+            <div>
+              <label className="dashboard-label" style={{ display: "block", marginBottom: 8 }}>
+                KYC Required?
+              </label>
+
+              <div style={{ display: "flex", gap: "20px", marginBottom: "8px" }}>
+                <label>
+                  <input
+                    type="radio"
+                    value="yes"
+                    checked={kycRequired === "yes"}
+                    onChange={() => setKycRequired("yes")}
+                  />{" "}
+                  Yes
+                </label>
+
+                <label>
+                  <input
+                    type="radio"
+                    value="no"
+                    checked={kycRequired === "no"}
+                    onChange={() => setKycRequired("no")}
+                  />{" "}
+                  No
+                </label>
+              </div>
+
+              {kycRequired === "yes" && (
+                <div>
+                  <label className="dashboard-label" style={{ display: "block", marginBottom: 8 }}>
+                    Upload KYC Documents
+                  </label>
+
+                  <input
+                    type="file"
+                    className="dashboard-input"
+                    multiple
+                    onChange={(e) => setKycFiles(Array.from(e.target.files))}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #ddd",
+                      fontSize: "14px"
+                    }}
+                  />
+
+                  {kycFiles.length > 0 && (
+                    <ul style={{ marginTop: 6 }}>
+                      {kycFiles.map((file, idx) => (
+                        <li key={idx}>{file.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+        
+
           <div>
             <label className="dashboard-label" style={{ display: 'block', marginBottom: '8px' }}>Comment</label>
             <textarea
@@ -729,14 +781,18 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
           </button>
         </form>
       </Modal>
+
       <FinalUploadModal
         open={finalModalOpen}
         onClose={() => { setFinalModalOpen(false); setFinalModalInvoiceId(null); }}
         onSubmit={handleFinalUpload}
       />
+
       <Modal open={showActionModal} onClose={() => setShowActionModal(false)}>
         <div style={{ maxWidth: 520, minWidth: 260 }}>
-          <h3 style={{ marginTop: 0, color: '#085EE3' }}>{actionType ? `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} Invoice` : 'Confirm Action'}</h3>
+          <h3 style={{ marginTop: 0, color: '#085EE3' }}>
+            {actionType ? `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} Invoice` : 'Confirm Action'}
+          </h3>
           <label style={{ display: 'block', marginTop: 8 }}>Comment</label>
           <textarea
             value={actionComment}
@@ -776,7 +832,7 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
               {queryError && (
                 <div style={{ color: 'red', fontSize: 13, marginTop: 2 }}>Query is required</div>
               )}
-               <label style={{ display: 'block', marginTop: 10 }}>Select Role</label>
+              <label style={{ display: 'block', marginTop: 10 }}>Select Role</label>
               <select
                 value={selectedRole}
                 onChange={e => {
@@ -807,11 +863,13 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
           </div>
         </div>
       </Modal>
+
       <ViewDocumentsModal
         open={showDocModal}
         onClose={() => { setShowDocModal(false); setDocModalFiles(null); }}
         documentField={docModalFiles}
       />
+
       <div className="dashboard-table-wrapper">
         <table className="dashboard-table">
           <thead>
@@ -824,14 +882,15 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
               <th>Invoice Type</th>
               <th>Invoice No.</th>
               <th>Invoice Amount</th>
+              <th>KYC Required</th>
+              <th>KYC Docs</th>
               <th>Current Role</th>
               <th style={{ textAlign: 'center' }}>Document</th>
               <th>Comment</th>
-             
             </tr>
             <tr>
               <th></th>
-               <th></th>
+              <th></th>
               <th>
                 <input
                   type="text"
@@ -886,6 +945,10 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                   className="filter-input"
                 />
               </th>
+              {/* No filters for PAN/KYC for now */}
+              
+              <th></th>
+              <th></th>
               <th>
                 <input
                   type="text"
@@ -905,13 +968,25 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                   className="filter-input"
                 />
               </th>
-             
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
-              <tr><td colSpan="11">No invoices found</td></tr>
-            ) : filteredInvoices.map(({ id, title, department, status, inv_type, inv_no, inv_amt, current_role, comment, document }, i) => (
+              <tr><td colSpan="14">No invoices found</td></tr>
+            ) : filteredInvoices.map(({
+              id,
+              title,
+              department,
+              status,
+              inv_type,
+              inv_no,
+              inv_amt,
+              kyc_required,
+              kyc_docs,
+              current_role,
+              comment,
+              document
+            }, i) => (
               <tr key={id}>
                 <td>{i + 1}</td>
                 <td style={{ textAlign: 'center' }}>
@@ -960,8 +1035,6 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                         </button>
                       </>
                     )}
-                    {/* NEW: Corrections icon – visible when status is rejected.
-                        I assumed only admin can correct; remove "role === 'admin'" if others should see it too. */}
                     {role === 'admin' && status === 'rejected' && (
                       <button
                         className="dashboard-btn dashboard-correction-btn"
@@ -982,7 +1055,7 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                           minWidth: 'auto',
                           width: '32px',
                           height: '32px',
-                          backgroundColor: '#dc3545' // red background
+                          backgroundColor: '#dc3545'
                         }}
                       >
                         <i className="fa fa-pen" style={{ color: 'white', fontSize: '0.9rem' }}></i>
@@ -996,6 +1069,22 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                 <td>{inv_type}</td>
                 <td>{inv_no}</td>
                 <td>{inv_amt}</td>
+                <td>{kyc_required ? (kyc_required === "yes" ? "Yes" : "No") : "-"}</td>
+               <td style={{ textAlign: "center" }}>
+    <button
+      className="dashboard-btn dashboard-view-btn"
+      title="View KYC Docs"
+      style={{ padding: "6px", minWidth: "auto", width: "32px", height: "32px", background: "#17a2b8" }}
+      onClick={() => {
+        setDocModalFiles(kyc_docs);
+        setShowDocModal(true);
+      }}
+    >
+      <i className="fas fa-id-card" style={{ color: "white", fontSize: "0.9rem" }}></i>
+    </button>
+  </td>
+
+
                 <td>{current_role}</td>
                 <td style={{ textAlign: 'center' }}>
                   <button
@@ -1010,8 +1099,7 @@ console.log('Parsed rejectedTo_role:', rejectedTo);
                     <i className="fas fa-file-alt" style={{ color: 'white', fontSize: '0.9rem' }}></i>
                   </button>
                 </td>
-                <td>{comment }</td>
-                
+                <td>{comment}</td>
               </tr>
             ))}
           </tbody>
