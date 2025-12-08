@@ -83,7 +83,7 @@ function ViewDocumentsModal({ open, onClose, documentField }) {
               <div style={{ display: "flex", gap: "10px" }}>
                 {/* VIEW */}
                 <a
-                  href={`http://localhost:8000/storage/${doc}`}
+                  href={`https://test.shreenarayanventures.in/backend/storage/${doc}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -99,7 +99,7 @@ function ViewDocumentsModal({ open, onClose, documentField }) {
 
                 {/* DOWNLOAD */}
                 <a
-                  href={`http://localhost:8000/storage/${doc}`}
+                  href={`https://test.shreenarayanventures.in/backend/api/download/${doc}`}
                   download
                   style={{
                     background: "#28a745",
@@ -128,7 +128,7 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
 
   useEffect(() => {
     if (!role) return;
-    fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
+    fetch(`https://test.shreenarayanventures.in/backend/api/logs/latest?role=${role}`, {
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
     })
       .then(res => res.json())
@@ -139,7 +139,7 @@ function NotificationBell({ role, onViewInvoiceHistory }) {
   }, [role, showDropdown]);
 
   const markAsSeen = () => {
-    fetch(`http://localhost:8000/api/logs/mark-seen?role=${role}`, {
+    fetch(`https://test.shreenarayanventures.in/backend/api/logs/mark-seen?role=${role}`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
     }).then(() => setUnseen(false));
@@ -263,8 +263,6 @@ function Dashboard({ role, department, onLogout }) {
   const [showDocModal, setShowDocModal] = useState(false);
   const [docModalFiles, setDocModalFiles] = useState(null);
 
-  // NEW: PAN + KYC for create invoice only
-  const [pan, setPan] = useState("");
   const [kycRequired, setKycRequired] = useState("no");
   const [kycFiles, setKycFiles] = useState([]);
 
@@ -277,7 +275,7 @@ function Dashboard({ role, department, onLogout }) {
     async function showRejectNotifications() {
       if (!role) return;
       try {
-        const res = await fetch(`http://localhost:8000/api/logs/latest?role=${role}`, {
+        const res = await fetch(`https://test.shreenarayanventures.in/backend/api/logs/latest?role=${role}`, {
           headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
         });
 
@@ -366,8 +364,6 @@ function Dashboard({ role, department, onLogout }) {
     setSelectedFiles([]);
     setError('');
 
-    // reset PAN & KYC only for create mode
-    setPan("");
     setKycRequired("no");
     setKycFiles([]);
   };
@@ -380,13 +376,15 @@ function Dashboard({ role, department, onLogout }) {
 
   async function handleUpload(e) {
     e.preventDefault();
-
-    if (!selectedFiles.length || !title || !inv_no || !inv_amt || !inv_type || (!editingInvoice && !pan)) {
-      setError('All fields and file are required (including PAN for new invoice)');
+   
+    if (!selectedFiles.length || !title || !inv_no || !inv_amt || !inv_type ) {
+      setError('All fields and file are required');
+      
       return;
     }
-
-    if (!editingInvoice && kycRequired === "yes" && kycFiles.length === 0) {
+ 
+    if (kycRequired === "yes" && kycFiles.length === 0) {
+      console.log('data24:');
       setError('Please upload KYC documents when KYC is required.');
       return;
     }
@@ -406,7 +404,7 @@ function Dashboard({ role, department, onLogout }) {
 
     // Only on create invoice
     if (!editingInvoice) {
-      formData.append('pan', pan);
+      
       formData.append('kyc_required', kycRequired);
       if (kycRequired === 'yes') {
         kycFiles.forEach(f => formData.append('kyc_docs[]', f));
@@ -493,7 +491,7 @@ function Dashboard({ role, department, onLogout }) {
     formData.append('action', action);
 
     try {
-      await fetch(`http://localhost:8000/api/invoices/${finalModalInvoiceId}/final-upload`, {
+      await fetch(`https://test.shreenarayanventures.in/backend/api/invoices/${finalModalInvoiceId}/final-upload`, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') },
         body: formData
@@ -945,7 +943,7 @@ function Dashboard({ role, department, onLogout }) {
                   className="filter-input"
                 />
               </th>
-              {/* No filters for PAN/KYC for now */}
+              {/* No filters for KYC for now */}
               
               <th></th>
               <th></th>

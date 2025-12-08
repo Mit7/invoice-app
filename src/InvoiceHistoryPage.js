@@ -12,7 +12,7 @@ function InvoiceHistoryPage({ invoiceId, onBack }) {
   const [currentDocs, setCurrentDocs] = useState([]);
 
   useEffect(() => {
-    fetch(`http://localhost:8000/api/logs/invoice/${invoiceId}`, {
+    fetch(`https://test.shreenarayanventures.in/backend/api/logs/invoice/${invoiceId}`, {
       headers: { "Authorization": "Bearer " + localStorage.getItem("auth_token") }
     })
       .then(res => res.json())
@@ -228,7 +228,7 @@ function InvoiceHistoryPage({ invoiceId, onBack }) {
 
                   {/* View */}
                   <a
-                    href={`http://localhost:8000/storage/${doc}`}
+                    href={`https://test.shreenarayanventures.in/backend/storage/${doc}`}
                     target="_blank"
                     style={{
                       background: "#007bff",
@@ -243,7 +243,7 @@ function InvoiceHistoryPage({ invoiceId, onBack }) {
 
                   {/* Download */}
                   <a
-                    href={`http://localhost:8000/invoice-download/${doc}`}
+                    href={`https://test.shreenarayanventures.in/backend/api/download/${doc}`}
                     style={{
                       background: "#28a745",
                       color: "white",

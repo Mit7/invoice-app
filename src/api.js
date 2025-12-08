@@ -1,5 +1,5 @@
-const API_BASE = 'http://localhost:8000/api';
-
+const API_BASE = 'https://test.shreenarayanventures.in/backend/api';
+//const API_BASE = 'http://localhost:8000/api';
 async function authFetch(url, options = {}) {
   const token = localStorage.getItem('auth_token');
   const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
